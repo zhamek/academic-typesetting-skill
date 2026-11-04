@@ -51,6 +51,17 @@
 - `\arraystretch` 1.0–1.15；超过 1.3 表会虚胖，还挤占版面。
 - 表内字号 `\small`（9pt）或 `\footnotesize`（8pt）；正文 11pt 时优先 `\small`。
 
+### 3.1.1 批量换管道表
+
+```bash
+python scripts/md_tables_to_latex.py src/report.md \
+    --widths "2.2,4.45,4.45,3.95" --floats "H,t,H,t" --write
+```
+
+- 多张表列宽不同时，用分号给多套剖面：`--widths "4,4;3,3,4"`，按表序套。
+- 列数对不上的那张会原样保留并打印提示，不猜。
+- 单元格里的 `& % $ # _` 会自动转义——手写时这几个是表格炸掉的头号原因。
+
 ### 3.2 原始 LaTeX 块的四条禁令
 
 在 `.qmd` / `.md` 的 ` ```{=latex} ` 块里，markdown 规则全部失效：

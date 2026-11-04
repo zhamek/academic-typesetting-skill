@@ -79,12 +79,16 @@
 
 % ---- 页眉页脚 ----
 \usepackage{fancyhdr}
+\usepackage{etoolbox}
 \providecommand{\doctitle}{}
 \providecommand{\docauthor}{}
+% 可选：页眉右侧在作者后面再接一段（课程名、指导教师之类），默认空
+\providecommand{\docrightextra}{}
 \pagestyle{fancy}
 \fancyhf{}
 \fancyhead[L]{\footnotesize\sffamily\doctitle}
-\fancyhead[R]{\footnotesize\sffamily\docauthor}
+\fancyhead[R]{\footnotesize\sffamily\docauthor%
+  \ifstrempty{\docrightextra}{}{\quad\docrightextra}}
 \fancyfoot[C]{\footnotesize\thepage}
 \renewcommand{\headrulewidth}{0.4pt}
 \fancypagestyle{plain}{\fancyhf{}\fancyfoot[C]{\footnotesize\thepage}%

@@ -42,7 +42,11 @@ def md_to_latex(text: str) -> str:
     t = t.replace("%", r"\%")
     # markdown 斜体 -> \textit（不处理嵌套）
     t = re.sub(r"(?<!\w)\*([^*]+)\*(?!\w)", r"\\textit{\1}", t)
+    t = t.replace("&", r"\&")      # 单元格里的 & 不转义会把整行拆坏
+    t = t.replace("#", r"\#")
     t = re.sub(r"(?<!\\)_", r"\\_", t)
+    # 数学被替换后仍残留的 $ 会开启数学模式，必须转义
+    t = t.replace("$", r"\$")
     return t
 
 
@@ -56,7 +60,10 @@ def build_table(rows: list[list[str]], caption: str, widths: list[float], place:
         "```{=latex}",
         f"\\begin{{table}}[{place}]",
         "\\centering",
-        f"\\caption{{{md_to_latex(caption)}}}",
+    ]
+    if caption.strip():
+        out.append(f"\\caption{{{md_to_latex(caption)}}}")
+    out += [
         "\\small",
         "\\setlength{\\tabcolsep}{4.5pt}",
         f"\\begin{{tabular}}{{{spec}}}",
@@ -69,13 +76,14 @@ def build_table(rows: list[list[str]], caption: str, widths: list[float], place:
     return "\n".join(out)
 
 
-def convert(text: str, widths: list[float], floats: list[str]) -> tuple[str, int]:
+def convert(text: str, profiles: list[list[float]], floats: list[str]) -> tuple[str, int]:
     lines = text.split("\n")
     out: list[str] = []
     i = 0
     idx = 0
     while i < len(lines):
         if is_row(lines[i]) and i + 1 < len(lines) and SEP.match(lines[i + 1]):
+            start = i
             block: list[str] = []
             while i < len(lines) and is_row(lines[i]):
                 block.append(lines[i])
@@ -93,6 +101,17 @@ def convert(text: str, widths: list[float], floats: list[str]) -> tuple[str, int
                 caption = lines[j].lstrip().lstrip(":").strip()
                 i = j + 1
             rows = [split_cells(r) for r in block]
+            ncol = len(rows[0])
+            # 给了多套剖面就按表序取；列数对不上时退回第一套
+            widths = profiles[idx] if len(profiles) > 1 and len(profiles[idx]) == ncol else profiles[0]
+            if len(widths) != ncol:
+                # 原样保留，不猜列宽
+                print(f"  表 {idx + 1}：列宽给 {len(widths)} 个、实际 {ncol} 列，已原样保留")
+                out.extend(lines[start:i])
+                if caption:
+                    out.append(": " + caption)
+                idx += 1
+                continue
             out.append(build_table(rows, caption, widths, floats[idx % len(floats)]))
             idx += 1
             continue
@@ -111,13 +130,18 @@ def main() -> int:
     args = ap.parse_args()
 
     src = Path(args.md)
-    widths = [float(w) for w in args.widths.split(",")]
+    # 单一剖面写 "2.2,4.45,4.45,3.95"；多套剖面用分号隔开，按表序套用
+    profiles = [[float(x) for x in chunk.split(",")]
+                for chunk in args.widths.split(";") if chunk.strip()]
     floats = [f.strip() for f in args.floats.split(",")]
-    total = sum(widths) + 0.315 * (len(widths) - 1)   # 3×4.5pt 列间距 ≈ 0.315cm
-    print(f"列宽合计 {sum(widths):.2f} cm + 列间距 {total - sum(widths):.2f} cm = {total:.2f} cm（版心 16.0）")
+    w0 = profiles[0]
+    total = sum(w0) + 0.315 * (len(w0) - 1)   # 3×4.5pt 列间距 ≈ 0.315cm
+    print(f"列宽合计 {sum(w0):.2f} cm + 列间距 {total - sum(w0):.2f} cm = {total:.2f} cm（版心 16.0）")
+    if len(profiles) > 1:
+        print(f"共 {len(profiles)} 套列宽剖面，按表序套用")
 
     text = src.read_text(encoding="utf-8")
-    new, n = convert(text, widths, floats)
+    new, n = convert(text, profiles, floats)
     dst = Path(args.out) if args.out else src
     if args.write or args.out:
         dst.write_text(new, encoding="utf-8")
