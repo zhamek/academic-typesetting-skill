@@ -7,7 +7,8 @@
 
 ```bash
 python scripts/contact_sheet.py output/report.pdf      # 全部页面拼一张图，看留白和掉页
-python scripts/qa_pdf.py output/report.pdf --lang zh   # 硬指标
+python scripts/qa_pdf.py  output/report.pdf --lang zh  # PDF 硬指标
+python scripts/qa_docx.py output/report.docx           # Word 硬指标
 ```
 
 `qa_pdf.py` 输出 `PASS` / `WARN` / `FAIL`，有 FAIL 时退出码为 1。
@@ -25,6 +26,19 @@ python scripts/qa_pdf.py output/report.pdf --lang zh   # 硬指标
 | 内容不越界 | 左右不超出边距 +3pt | 表格列宽超、图过宽 | 重算列宽；图加 `width=\linewidth` |
 | 无位图 | `page.get_images()` 为空 | 图被导出成 PNG，或截图贴进来 | 改 PDF/SVG；确需位图则 ≥ 300dpi |
 | 编号连续 | 表/图各自 1..n 不跳号 | 手写编号漏改 | 改用 `\label`/`\ref` 或 `@tbl-` |
+| 图表都被引用 | 每个"表N/图N"在正文出现 ≥2 次 | 图挂在文中却没人提，评审会问"表 1 想说什么" | 在讨论它的段落里加一句引用 |
+| 无孤儿标题 | 页末最后一块不是标题 | 标题吊在页底、正文翻页 | 让标题随正文落到下一页顶（调该节段前距或前一段长度） |
+
+### DOCX（`qa_docx.py`）
+
+| 检查 | 阈值 | 失败意味着 | 怎么修 |
+| --- | --- | --- | --- |
+| 纸张 A4 | 210×297mm ±2 | 参考模板没写 page size，Word 用 Letter | `setup_templates.py` 里显式设 `section.page_*` |
+| 页边距 | ≥1.5cm | 同上，默认 1 英寸 | 同上 |
+| 中英文字体分设 | ascii 与 eastAsia 都非空 | 中文掉回系统替代字体 | 样式里同时设 `w:rFonts` 的 `ascii`/`eastAsia` |
+| 表格无竖线 | 无 left/right/insideV | `fix_docx_tables.py` 没跑或没修干净 | 先 fix 再验，顺序不能反 |
+| 题注样式 | 有图表就有题注 | 题注被写成正文 | 用 Pandoc 的 `: 题注` 语法 |
+| 插图 ≥300dpi | 像素宽 / 显示宽 | 截图贴图 | 换原图或矢量 |
 | 无未解析引用 | 不出现 `??` `[@` `**` `undefined` | 编译次数不够 / 语法写错 | 连编两次；检查方括号 |
 | 元数据 | title + author 非空 | PDF 属性是空的 | `\hypersetup{pdftitle=...,pdfauthor=...}` |
 | 日志溢出 | 见下方 | 局部排版崩 | 见 `latex-pdf.md` §8 |

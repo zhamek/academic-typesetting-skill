@@ -103,6 +103,7 @@ def main() -> int:
                     help="期望出现的字体族，逗号分隔子串")
     ap.add_argument("--log", default=None, help="xelatex/pandoc 日志，用于统计 Overfull")
     ap.add_argument("--max-pages", type=int, default=None)
+    ap.add_argument("--fill", type=float, default=0.85, help="非末页版心填充率下限")
     ap.add_argument("--strict", action="store_true", help="WARN 也返回非零")
     args = ap.parse_args()
 
@@ -169,9 +170,9 @@ def main() -> int:
         if p == doc.page_count:
             continue
         ratio = (b - top_edge) / max(full - top_edge, 1)
-        if ratio < 0.85:
+        if ratio < args.fill:
             short.append(f"p{p} {ratio:.0%}")
-    r.add("PASS" if not short else "WARN", "页填充率 ≥85%",
+    r.add("PASS" if not short else "WARN", f"页填充率 ≥{args.fill:.0%}",
           "各页饱满" if not short else f"偏空: {', '.join(short)}")
 
     margin = 1.5 / 2.54 * 72
@@ -217,8 +218,30 @@ def main() -> int:
     r.add("PASS" if not bad else "WARN", "图表编号连续",
           "1..n" if not bad else "跳号/重号 " + "; ".join(bad))
 
-    # ---------- 残留 ----------
     text_all = "".join(p.get_text() for p in doc)
+
+    # ---------- 正文是否真的引用了每张图表 ----------
+    unref = []
+    for kind, nums in seq.items():
+        for n in sorted(set(nums)):
+            if len(re.findall(rf"{kind}\s*{n}(?!\d)", text_all)) <= 1:
+                unref.append(f"{kind}{n}")
+    r.add("PASS" if not unref else "WARN", "图表均在正文被引用",
+          "全部引用过" if not unref else "只出现在题注里: " + ", ".join(unref[:6]))
+
+    # ---------- 孤儿标题：一页的最后一块内容是标题 ----------
+    by_page: dict[int, list] = {}
+    for b in blocks:
+        by_page.setdefault(b[0], []).append(b)
+    orphans = []
+    for pno, bs in by_page.items():
+        last = max(bs, key=lambda b: b[4])
+        if last[6] > body_size + 1.5 and len(last[5]) < 40:
+            orphans.append(f"p{pno}「{last[5][:14]}」")
+    r.add("PASS" if not orphans else "WARN", "无孤儿标题",
+          "正常" if not orphans else "标题落在页末: " + "; ".join(orphans))
+
+    # ---------- 残留 ----------
     for token in ("??", "[@", "**", "undefined", "TODO", "待补"):
         r.add("PASS" if token not in text_all else "FAIL", f"无残留 {token!r}")
 

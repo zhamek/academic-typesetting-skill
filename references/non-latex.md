@@ -67,11 +67,24 @@ python templates/fix_docx_tables.py output/report.docx
 
 Pandoc 的 `slide-level: 2` 表示 `##` 起新页；`#` 是分节页。中文标题不要用自动编号（会变成 "1 引言" 之类），幻灯片通常不要编号。
 
-## 6 交付前自检
+## 6 交付闸
 
 ```bash
-python scripts/qa_pdf.py output/report.pdf --lang zh   # 若同时出了 PDF
-python -c "import docx; d=docx.Document('output/report.docx'); print(len(d.tables))"
+python scripts/qa_docx.py output/report.docx
 ```
 
-Word 稿至少肉眼过三件事：表是不是三线、题注有没有跟着表走、中文字体有没有掉回 Calibri。
+它查的是 Word 稿特有、肉眼最容易漏的几件事：
+
+| 检查 | 为什么值得查 |
+| --- | --- |
+| 纸张 A4 | Pandoc 的默认参考文档**不写 page size**，Word 会退回 Letter。导出 PDF 后整份变美式纸张 |
+| 页边距 | 同上，默认 1 英寸，不是中文报告的 2.2–2.5cm |
+| 中英文字体分设 | 只设 `ascii` 不设 `eastAsia`，中文会掉回宋体的系统替代字 |
+| 表格无竖线 | `fix_docx_tables.py` 之后仍有 `insideV/left/right` 就是没修干净 |
+| 题注有样式 | 有表无题注，或题注被写成正文 |
+| 插图 ≥300dpi | 截图贴进来的图往往只有 96dpi |
+
+实测提醒：`templates/nature_style.docx` 早期版本确实没写纸张和边距，闸门一跑就露了；
+现已由 `setup_templates.py` 显式写入 A4 + 2.2/2.5cm。
+
+肉眼仍需过一遍：表是不是三线、题注有没有跟着表走。

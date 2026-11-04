@@ -1,0 +1,29 @@
+# typeset.yaml —— build.py 的配置模板
+# 路径一律相对于本文件所在目录。
+
+# ---- 单栏课程报告 ----
+source: src/report.md
+output: output/report.pdf
+engine: pandoc            # pandoc | quarto
+class: article            # 纯中文可用 ctexart
+fontsize: 11pt
+papersize: a4
+geometry: top=2.2cm,bottom=2.2cm,left=2.5cm,right=2.5cm
+header: <SKILL>/templates/header-cn.tex     # 换成实际的 skill 路径
+bibliography: references.bib
+csl: <SKILL>/templates/nature.csl
+number_sections: true
+resource_path: [".", "src", "assets"]
+lang: zh
+fonts: SimSun,SimHei,TimesNewRoman      # 交给 qa_pdf.py 的 --fonts；用思源宋体就换掉
+
+# ---- 双栏论文：把上面三行换成下面四行 ----
+# class: article
+# classoption: twocolumn
+# fontsize: 10pt
+# header: <SKILL>/templates/header-paper.tex
+
+# ---- 出 Word（不需要 pdf-engine 与 geometry）----
+# output: output/report.docx
+# extra_args: ["--reference-doc=<SKILL>/templates/nature_style.docx",
+#              "--filter=<SKILL>/filters/latex-macros-to-unicode.lua"]

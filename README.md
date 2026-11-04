@@ -26,11 +26,15 @@ academic-typesetting/
 │   ├── figures.md               # 矢量、按印刷宽度作图、图内字体、matplotlib 陷阱
 │   └── qa-gate.md               # 量什么、阈值、失败怎么修
 ├── scripts/
-│   ├── qa_pdf.py                # 交付闸：字体/页填充/越界/位图/编号/元数据
-│   ├── md_tables_to_latex.py   # 管道表 → 定宽三线表（保文字，只换版式）
+│   ├── build.py                 # 配置驱动构建：typeset.yaml → 文件 + 每页填充率
+│   ├── qa_pdf.py                # PDF 闸：字体/页填充/越界/位图/编号/孤儿标题
+│   ├── qa_docx.py               # Word 闸：纸张/边距/中英文字体/竖线/题注/图片 dpi
+│   ├── md_tables_to_latex.py    # 管道表 → 定宽三线表（保文字，只换版式）
 │   └── contact_sheet.py         # 全部页面拼一张联系表，一眼找留白
 ├── templates/
-│   ├── header-cn.tex            # 实测可用的中文前导（含 \tabref/\figref）
+│   ├── header-cn.tex            # 单栏中文前导（含 \tabref/\figref）
+│   ├── header-paper.tex         # 双栏论文版式（10pt、Noto Serif、跨栏图表）
+│   ├── typeset.example.yaml     # build.py 的配置模板
 │   ├── academic-header.tex      # 西文/英文布局变体
 │   ├── nature.csl               # Nature 风；带 zh-CN locale 覆盖块
 │   ├── nature_style.docx        # DOCX 参考模板
@@ -47,7 +51,11 @@ academic-typesetting/
 # 0. 一次性的模板生成（改过 setup_templates.py 里的参数后重跑）
 python templates/setup_templates.py
 
-# 1. 编译（项目自带 build 脚本优先）
+# 1. 配置一次，之后一条命令（等价于下面那条 pandoc）
+cp templates/typeset.example.yaml <项目>/typeset.yaml   # 改 source/output/header
+python scripts/build.py --config <项目>/typeset.yaml --qa
+
+# 或者直接调 pandoc：
 pandoc src/report.qmd -o output/report.pdf --pdf-engine=xelatex \
   --include-in-header=templates/header-cn.tex \
   --citeproc --bibliography=references.bib --csl=templates/nature.csl \

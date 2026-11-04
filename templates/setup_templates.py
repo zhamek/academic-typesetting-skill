@@ -17,7 +17,7 @@ from pathlib import Path
 from docx import Document
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
-from docx.shared import Pt
+from docx.shared import Mm, Pt
 from pptx import Presentation
 from pptx.util import Inches
 
@@ -102,6 +102,16 @@ def _build_docx_reference(dest: Path):
         base.write_bytes(raw)
 
         doc = Document(str(base))
+        # Pandoc 的默认参考文档不带 w:pgSz，Word 会退回 Letter + 1 英寸边距。
+        # 不写死纸张，中文稿导出 PDF 后就是美式纸张，评审一眼能看出来。
+        for section in doc.sections:
+            section.page_width = Mm(210)
+            section.page_height = Mm(297)
+            section.top_margin = Mm(22)
+            section.bottom_margin = Mm(22)
+            section.left_margin = Mm(25)
+            section.right_margin = Mm(25)
+
         styles = doc.styles
         have = {s.name for s in styles}
 

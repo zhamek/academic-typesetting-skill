@@ -1,0 +1,99 @@
+% ============================================================
+% 双栏论文版式（期刊风 / 参考件那种排法）
+%
+% 必须同时传 classoption，否则还是单栏：
+%   pandoc src/report.md -o out.pdf --pdf-engine=xelatex \
+%     --include-in-header=templates/header-paper.tex \
+%     -V documentclass=article -V classoption=twocolumn \
+%     -V fontsize=10pt -V papersize=a4
+%
+% 与 header-cn.tex 的差别：双栏、10pt、思源宋体、栏间距 6mm。
+% 双栏下每行只有 22–24 个汉字，再大字号就挤；别用 11pt。
+%
+% 跨栏的表和图用 table* / figure*（只能落页顶，不能 [H]）。
+% ============================================================
+
+% ---- 字体：中文思源黑/宋，西文 Times ----
+% 用 Noto Serif SC，不要用 Source Han Serif SC：后者在本机安装的 Heavy 字重
+% 缺 、。 等 CJK 标点，一旦出现加粗中文就静默吞标点（实测 15 个缺字）。
+\usepackage{xeCJK}
+\setCJKmainfont[AutoFakeBold=2]{Noto Serif SC}
+\setCJKsansfont[AutoFakeBold=2]{SimHei}
+\setCJKmonofont{SimSun}
+\setmainfont{Times New Roman}
+\setsansfont{Arial}
+\setmonofont{Consolas}
+
+% ---- 版面：双栏 ----
+\usepackage[a4paper,top=2cm,bottom=2cm,left=2cm,right=2cm,columnsep=6mm]{geometry}
+\linespread{1.15}
+\setlength{\parindent}{2em}
+\setlength{\parskip}{0pt}
+\setlength{\emergencystretch}{2em}
+\widowpenalty=10000
+\clubpenalty=10000
+
+% ---- 标题：双栏下字号收紧一档 ----
+\usepackage{titlesec}
+\titleformat{\section}{\sffamily\fontsize{12pt}{15pt}\selectfont\bfseries}{\thesection}{0.6em}{}
+\titlespacing*{\section}{0pt}{10pt plus 2pt}{5pt plus 1pt}
+\titleformat{\subsection}{\sffamily\fontsize{10pt}{13pt}\selectfont\bfseries}{\thesubsection}{0.5em}{}
+\titlespacing*{\subsection}{0pt}{8pt plus 1pt}{3pt}
+\titleformat{\subsubsection}{\sffamily\fontsize{10pt}{13pt}\selectfont\bfseries}{\thesubsubsection}{0.5em}{}
+\titlespacing*{\subsubsection}{0pt}{6pt plus 1pt}{2pt}
+
+% ---- 交叉引用宏 ----
+\newcommand{\tabref}[1]{表~\ref{#1}}
+\newcommand{\figref}[1]{图~\ref{#1}}
+
+% ---- 题注：双栏下再小一号 ----
+\usepackage[font=footnotesize,labelsep=quad,skip=4pt,justification=centering]{caption}
+\captionsetup[table]{position=top}
+\renewcommand{\tablename}{表}
+\renewcommand{\figurename}{图}
+
+% ---- 三线表 ----
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{array}
+\setlength{\heavyrulewidth}{1.5pt}
+\setlength{\lightrulewidth}{0.75pt}
+\setlength{\cmidrulewidth}{0.5pt}
+\renewcommand{\arraystretch}{1.05}
+\setlength{\tabcolsep}{4pt}
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+
+% ---- 图 ----
+\usepackage{graphicx}
+\usepackage{float}
+\setlength{\textfloatsep}{10pt plus 2pt minus 2pt}
+\setlength{\intextsep}{6pt plus 1pt}
+\renewcommand{\topfraction}{0.92}
+\renewcommand{\bottomfraction}{0.8}
+\renewcommand{\textfraction}{0.08}
+\renewcommand{\floatpagefraction}{0.75}
+% 纯浮动页的胶水默认可伸缩，会把这些页的浮动体撑到页面中间，看起来"松散"。
+% 顶部不伸缩、余量全堆到底部，浮动体就从页顶往下排。
+\makeatletter
+\setlength{\@fptop}{0pt}
+\setlength{\@fpsep}{12pt}
+\setlength{\@fpbot}{0pt plus 1fil}
+\makeatother
+
+% ---- 页眉页脚 ----
+\usepackage{fancyhdr}
+\providecommand{\doctitle}{}
+\providecommand{\docauthor}{}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\footnotesize\sffamily\doctitle}
+\fancyhead[R]{\footnotesize\sffamily\docauthor}
+\fancyfoot[C]{\footnotesize\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\fancypagestyle{plain}{\fancyhf{}\fancyfoot[C]{\footnotesize\thepage}%
+  \renewcommand{\headrulewidth}{0pt}}
+\setlength{\headheight}{15pt}
+
+% ---- 链接 ----
+\usepackage[unicode,hidelinks]{hyperref}
+\AtBeginDocument{\hypersetup{pdftitle={\doctitle},pdfauthor={\docauthor}}}

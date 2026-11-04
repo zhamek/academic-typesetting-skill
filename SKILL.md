@@ -44,20 +44,24 @@ description: 学术文档的排版与交付引擎——单一 Markdown 源出 PD
 下文用 `$S` 指代本 skill 目录（`~/.claude/skills/academic-typesetting`），因为脚本不在项目里。
 
 ```bash
-# ① 编译：项目自带的 build 脚本优先；没有就直接调 pandoc / quarto
-#    若源文件还是管道表，先换列宽（pandoc 默认四列等宽，中文会被拉散）：
-python "$S/scripts/md_tables_to_latex.py" src/report.qmd \
+# ① 一次配置，之后一条命令（typeset.yaml 见 templates/typeset.example.yaml）
+python "$S/scripts/build.py" --config typeset.yaml        # 出文件 + 打印每页填充率
+
+#    源文件还是管道表时，先换列宽（pandoc 默认四列等宽，中文会被拉散）
+python "$S/scripts/md_tables_to_latex.py" src/report.md \
     --widths 2.2,4.45,4.45,3.95 --floats H,t,H,t --write
-quarto render src/report.qmd --to pdf        # 或 README 里的 pandoc 命令
 
 # ② 联系表：全部页面拼一张，一眼看留白、掉页、浮动体漂移
 python "$S/scripts/contact_sheet.py" output/report.pdf
 
-# ③ 量测：字体嵌入 / 页填充率 / 越界 / 位图 / 编号连续 / 元数据
-python "$S/scripts/qa_pdf.py" output/report.pdf --lang zh
+# ③ 量测：PDF 与 DOCX 各有一个闸
+python "$S/scripts/qa_pdf.py"  output/report.pdf  --lang zh
+python "$S/scripts/qa_docx.py" output/report.docx
 
 # ④ 对着 FAIL/WARN 改，回到 ①
 ```
+
+`build.py --qa` 可以把 ① 和 ③ 连起来跑。
 
 量什么、阈值多少、每种失败怎么修，见 `references/qa-gate.md`。
 
@@ -72,7 +76,9 @@ python "$S/scripts/qa_pdf.py" output/report.pdf --lang zh
 | `references/figures.md` | 插图：矢量、按印刷宽度作图、图内字体、matplotlib 陷阱 |
 | `references/qa-gate.md` | 每次交付前；以及版面出问题时的诊断顺序 |
 
-同时在 `templates/`：`header-cn.tex`（实测可用的中文前导）、`nature.csl`、DOCX/PPTX 参考模板、`setup_templates.py`、`fix_docx_tables.py`；在 `filters/`：`latex-macros-to-unicode.lua`。
+同时在 `templates/`：`header-cn.tex`（单栏中文前导）、`header-paper.tex`（双栏论文版式）、
+`typeset.example.yaml`（构建配置模板）、`nature.csl`、DOCX/PPTX 参考模板、`setup_templates.py`、
+`fix_docx_tables.py`；在 `filters/`：`latex-macros-to-unicode.lua`。
 
 ## 5 常见故障速查
 
