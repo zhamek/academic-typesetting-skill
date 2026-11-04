@@ -20,8 +20,11 @@ from pathlib import Path
 
 import fitz
 
-# 这些字体出现在成品里，通常意味着"某处静默回退到了库的默认字体"
-FALLBACK_FONTS = ("DejaVu", "LatinModern", "LMRoman", "Nimbus", "Liberation", "Bitstream", "FreeSerif")
+# 数学/图表库的默认字体混进正文，通常意味着某处静默回退
+MATH_FALLBACK = ("LatinModernMath", "DejaVu", "AsanaMath", "STIX")
+# 整篇用 Latin Modern 的文档（LuaTeX 默认）是另一种情况：先看声明的字体是否生效，
+# 全都缺席才提示，不能把"故意用 LM"当成错误。
+TEXT_FALLBACK = ("LMRoman", "Nimbus", "Liberation", "Bitstream", "FreeSerif", "TeXGyre")
 
 A4 = (595.28, 841.89)
 LETTER = (612.0, 792.0)
@@ -74,16 +77,21 @@ def collect_blocks(doc):
 
 
 def content_bottom(doc, pno):
-    """该页正文区最低的内容位置，含图片与矢量线条，不含页眉页脚。"""
+    """该页正文区最低的内容位置，含图片与矢量线条，不含页眉页脚。
+
+    多栏排版里 PyMuPDF 常把整页文字合并成一个跨越页底的大 block（y1 落进页脚带），
+    所以这里把每个 bbox 先裁进正文区再取底边，而不是整块丢弃。
+    """
     page = doc[pno - 1]
     top, bot = body_zone(page.rect.height)
     low = top
     for kind, bbox in page.get_bboxlog():
         if kind == "ignore":
             continue
-        y1 = bbox[3]
-        if top < y1 < bot:
-            low = max(low, y1)
+        y0, y1 = bbox[1], bbox[3]
+        if y1 <= top or y0 >= bot:
+            continue
+        low = max(low, min(y1, bot))
     return low
 
 
@@ -128,13 +136,22 @@ def main() -> int:
     r.add("PASS" if not not_embedded else "FAIL", "字体嵌入",
           "全部嵌入" if not not_embedded else f"未嵌入: {', '.join(not_embedded[:4])}")
 
-    fallback = sorted({n for n in fonts if any(k.lower() in n.lower() for k in FALLBACK_FONTS)})
-    r.add("PASS" if not fallback else "WARN", "无回退字体",
-          "干净" if not fallback else f"出现 {', '.join(fallback)}（常见于图内 mathtext 或 $>$）")
+    math_fb = sorted({n for n in fonts if any(k.lower() in n.lower() for k in MATH_FALLBACK)})
+    r.add("PASS" if not math_fb else "WARN", "无数学回退字体",
+          "干净" if not math_fb else f"出现 {', '.join(math_fb[:3])}（图内 mathtext 或 $>$）")
 
-    for fam in [s.strip() for s in args.fonts.split(",") if s.strip()]:
-        hit = any(fam.lower().replace(" ", "") in n.lower().replace(" ", "") for n in fonts)
-        r.add("PASS" if hit else "WARN", f"字体族 {fam}", "已使用" if hit else "未检出")
+    declared = [s.strip() for s in args.fonts.split(",") if s.strip()]
+    hits = [fam for fam in declared
+            if any(fam.lower().replace(" ", "") in n.lower().replace(" ", "") for n in fonts)]
+    if declared and not hits:
+        text_fb = sorted({n for n in fonts if any(k.lower() in n.lower() for k in TEXT_FALLBACK)})
+        hint = f"，正文用的是 {', '.join(text_fb[:2])}" if text_fb else ""
+        r.add("WARN", "字体族约定",
+              f"声明的 {len(declared)} 个字体族都没用上{hint}；换了字体栈请用 --fonts 指定")
+    elif declared and len(hits) < len(declared):
+        r.add("WARN", "字体族约定", f"缺少 {', '.join(f for f in declared if f not in hits)}")
+    elif declared:
+        r.add("PASS", "字体族约定", "、".join(hits) + " 均生效")
 
     # ---------- 版面 ----------
     blocks = collect_blocks(doc)
