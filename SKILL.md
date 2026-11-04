@@ -25,8 +25,8 @@ description: 学术文档的排版与交付引擎——单一 Markdown 源出 PD
 2. **字体字号显式声明。** 正文 Times New Roman + 宋体，标题黑体，等宽 Consolas。不依赖任何默认。
 3. **编号交给环境。** LaTeX 里用 `\label`/`\ref`，Quarto 里用 `@fig-`/`@tbl-`；手写"表1"在插入新表后必错。
 4. **中文正文：首行缩进 2 字符、段间距 0、行距 1.4–1.5×字高。** 西文网页式 `parskip` 不要套到中文报告上。
-5. **浮动体位置是试出来的，不是设出来的。** 每页版心要接近占满足（≥ 85%），大片留白算缺陷。
-6. **交付前必须过闸：** `python scripts/qa_pdf.py <pdf> --lang zh --fonts SimSun,SimHei,TimesNewRoman`，有 FAIL 不许交。
+5. **浮动体位置是试出来的，不是设出来的。** 每页版心要接近占满（≥ 85%），大片留白算缺陷。
+6. **交付前必须过闸：** 跑 `qa_pdf.py`（路径与参数见 §3），有 FAIL 不许交。
 
 ## 2 引擎与文档类选择
 
@@ -82,13 +82,13 @@ python "$S/scripts/qa_pdf.py" output/report.pdf --lang zh
 | 图比版心宽 2–3pt，日志报 Overfull | `bbox_inches='tight'` 默认带 pad，图比画布宽一点 | `\includegraphics[width=\linewidth]` 强制贴合 |
 | 图里出现无衬线数字/符号 | matplotlib 的 mathtext 回退到 DejaVu | 图内别写 `$...$`（写"二氧化碳"、`g / L`）；或设 `mathtext.fontset=custom` |
 | 参考文献页码变成 `123～130 (2024 年)` | citeproc 走了中文 locale | 用 `templates/nature.csl`，它带 `<locale zh-CN>` 覆盖块，别拿官方文件覆盖 |
-| 中文里"表 1"和"1"之间空格时有时无 | 编号与题名之间是 `\labelsep`，不是手打的空格 | `\captionsetup{labelsep=quad}` |
+| 题注里"表1"与题名之间的空隙不统一 | 该空隙是 `\labelsep`，不是手打空格 | `\captionsetup{labelsep=quad}` |
 
 ## 6 交付版面基线（中文课程报告 / 综述）
 
 - A4，页边距 2.2–2.5 cm，正文 11pt 宋体/Times，行距 1.17（≈1.4×字高）
 - 标题黑体：一级 14pt、二级 12pt、三级 11pt，段前 15/12/10pt、段后 7/5/4pt
-- 表：`\footnotesize` + `\arraystretch` 1.0–1.15 + 定宽 `p{}` 右不齐；三线 1.5/0.75/1.5pt
+- 表：`\small`（正文 11pt → 表内 9pt；挤不下再降 `\footnotesize`）+ `\arraystretch` 1.0–1.15 + 定宽 `p{}` 右不齐；三线 1.5/0.75/1.5pt
 - 图：矢量 PDF，宽度 = 版心宽，图题在下；图内字号 = 印刷字号（按宽度作图，不缩放）
 - 参考文献：正文上标编号，列表 `\small`/`\footnotesize` 悬挂缩进
 - 页眉左标题右作者学号，首页不显示页眉；页脚居中页码
