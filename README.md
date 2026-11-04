@@ -1,261 +1,89 @@
 # Academic Typesetting — Claude Code Skill
 
-[![Skill Type](https://img.shields.io/badge/Claude%20Code-Skill-8A2BE2)](https://claude.ai/code)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)]()
+单一 Markdown 源 → PDF / DOCX / PPTX。管**生产**，不管**内容**。
 
-Integrated academic typography engine for [Claude Code](https://claude.ai/code) utilizing **Quarto** for single-source publishing to PDF, DOCX, and PPTX. Enforces **Nature/Science journal-grade** layout geometry, strict font discipline, bioinformatics nomenclature, vector graphics scaling, and Zotero CSL automated citation.
+写论文正文找 `nature-writing`，润色找 `nature-polishing`，数据图找 `nature-figure`，
+黑白示意图找 `figkit-bw-figure`；本 skill 只负责把已有内容排成能交付的文件，并且**量给你看**。
 
----
+## 它和 v1 有什么不同
 
-## Overview
+v1 是一份 286 行的规范，靠模型自觉执行；它自己就写错了三处配置，而且没有任何验证手段。
 
-This skill replaces the legacy `pdf-typography` skill with a unified engine covering three output formats from a single Markdown source (.qmd). Claude outputs **semantic Markdown** — zero OOXML/LaTeX template code generation, avoiding context window exhaustion and style degradation.
+v2 的判断很简单：**排版的问题只有编译、渲染、测量才能发现**。所以把规范拆成按需加载的五篇，
+把"检查表"换成两个脚本，把这次实际踩到的坑（`%` 未转义、`extarticle` 不吃 10.5pt、
+matplotlib 数学字体回退、浮动体掉页）固化成可执行的检查。
 
-### Architecture
-
-```
-User writes .qmd (Markdown + LaTeX)
-       │
-       ▼
-   Quarto / Pandoc compile
-       │
-       ├──→ PDF   (xelatex + mhchem + siunitx)          — native LaTeX
-       ├──→ DOCX  (reference-doc + lua filter)  ──→ fix_docx_tables.py
-       └──→ PPTX  (reference-doc + lua filter)
-```
-
-DOCX/PPTX have no LaTeX engine, so they additionally require
-`filters/latex-macros-to-unicode.lua` (rewrites `\ce{}` and `\qty{}` to Unicode)
-and, for DOCX, a post-render pass of `templates/fix_docx_tables.py` (removes the
-stray rules Quarto's caption-wrapper table would otherwise draw). See SKILL.md §3.0.
-
-## Quick Start
-
-### Prerequisites
-
-| Tool | Purpose | Install |
-|------|---------|---------|
-| **Quarto** | Single-source compiler | `winget install quarto` or [quarto.org](https://quarto.org) |
-| **Pandoc 3.9+** | AST conversion engine | Bundled with Quarto, or `winget install pandoc` |
-| **XeLaTeX** | PDF rendering (Chinese font support) | `winget install TeXLive` or [tug.org](https://tug.org) |
-| **python-docx** | One-time template generation | `pip install python-docx python-pptx` |
-| **Git** | Version control | `winget install git` |
-
-### Installation
-
-1. Copy this skill directory to `~/.claude/skills/academic-typesetting/` (Claude Code auto-discovers it)
-2. Run the one-time workspace initializer:
-
-```bash
-cd ~/.claude/skills/academic-typesetting/templates
-python setup_templates.py
-```
-
-This generates `nature_style.docx` and `academic_style.pptx` reference templates.
-
-3. Verify LaTeX compiler:
-
-```bash
-xelatex --version
-```
-
-### Usage in Claude Code
-
-Trigger the skill by mentioning any of these keywords in your prompt:
-
-> 排版 / 论文 / 报告 / 幻灯片 / 基因编辑 / 生信 / PDF / DOCX / PPTX / quarto / 三线表
-
-Example:
-
-> 帮我将这份实验报告排版为 PDF，包含化学式 $\ce{Ca(NO3)2.4H2O}$ 和三线表
-
-Claude will generate a `.qmd` file in your project's `src/` directory. Compile with:
-
-```bash
-# All formats
-quarto render src/report.qmd --output-dir output
-
-# Single format
-quarto render src/report.qmd --to pdf
-quarto render src/report.qmd --to docx
-quarto render src/report.qmd --to pptx
-
-# DOCX REQUIRES a post-render pass — skipping it leaves five rules
-# around every captioned table instead of three.
-python templates/fix_docx_tables.py output/report.docx
-```
-
-### Project Directory Convention
-
-Per the user's CLAUDE.md global rules:
-
-```
-D:\000 cc\<your-project-name>\
-├── src/
-│   └── report.qmd          # Main Quarto source
-├── templates/
-│   ├── nature_style.docx   # DOCX reference template
-│   ├── academic_style.pptx # PPTX reference template
-│   └── nature.csl          # Citation style
-├── assets/
-│   └── figures/            # Vector graphics (SVG/PDF)
-├── output/                 # Compiled output
-├── references.bib          # BibTeX bibliography
-└── .vscode/
-    └── tasks.json          # VS Code build task
-```
-
----
-
-## Typography Specifications
-
-### Font Stack
-
-| Role | PDF / DOCX (Print) | PPTX (Projection) |
-|------|-------------------|-------------------|
-| Body Latin | Times New Roman (**Serif**) | Arial / Helvetica (**Sans-serif**) |
-| Body CJK | SimSun / 宋体 (**Serif**) | SimHei / 黑体 (**Sans-serif**) |
-| Heading Latin | Times New Roman Bold (**Serif**) | Arial Bold (**Sans-serif**) |
-| Heading CJK | STZhongsong / 黑体 | SimHei / 黑体 |
-| Monospace (Code/Seq) | Consolas / Courier New | Consolas |
-
-### Type Scale
-
-| Element | PDF / DOCX | PPTX |
-|---------|-----------|------|
-| Document Title | 20pt Bold | 36pt Bold |
-| Heading 1 | 14pt Bold | 28pt Bold |
-| Heading 2 | 12pt Bold | 24pt Bold |
-| Body | 10.5pt (五号) | 18--22pt |
-| Figure/Table Caption | 8.5pt | 14pt |
-| References | 9pt | — |
-| Header/Footer | 8pt | 10pt |
-
-### Page Geometry
-
-- **Paper**: A4 (210 × 297 mm)
-- **Margins**: 2.2 cm all sides (print); 1.5 cm (slides)
-- **Line spacing**: 1.35× (print); 1.2--1.5× (slides)
-- **Paragraphs**: 8pt after, zero first-line indent
-- **Slide ratio**: 16:9 (PPTX)
-
-### Tables: Three-Line (Booktabs) Style
-
-- Top rule: 1.5pt solid
-- Header-bottom rule: 0.75pt solid
-- Table-bottom rule: 1.5pt solid
-- **No vertical borders** — ever
-- **No interior horizontal borders**
-- Caption **above** table (print) / above table (slides)
-
----
-
-## Writing Rules
-
-### Chemical Formulas
-
-Always `$\ce{...}$` — Pandoc auto-converts to mhchem (PDF) or OMML (DOCX/PPTX):
-
-```markdown
-$\ce{Ca(NO3)2.4H2O}$ was used as the calcium source.
-```
-
-### Physical Quantities
-
-Always `\qty{number}{unit}` — Pandoc converts to siunitx or thin-space formatting:
-
-```markdown
-Incubated at \qty{25}{\degreeCelsius} for \qty{30}{\minute}.
-```
-
-### Gene & Protein Nomenclature (Bioinformatics)
-
-| Type | Format | Example |
-|------|--------|---------|
-| **Gene symbol** | *Italic* | *Cas9*, *PIK3CA*, *TP53* |
-| **Protein symbol** | Upright | Cas9, PIK3CA, TP53 |
-| **mRNA / cDNA** | Upright | mRNA, cDNA |
-| **Species name** | *Italic* | *Homo sapiens* |
-| **Restriction enzyme** | Upright | EcoRI, HindIII |
-| **Mutation (protein)** | Upright, HGVS | p.Gly12Val |
-| **Mutation (cDNA)** | Upright, HGVS | c.35G>A |
-
-### Nucleotide / Amino Acid Sequences
-
-Use backtick-wrapped code spans. For sequences > 10 bases, insert thin space (U+2009) every 10 bases:
-
-```markdown
-Primer: `5'-ATGCGATGCC GATGCATCGA TCGAT-3'`
-```
-
-### Vector Graphics
-
-- **Preferred**: PDF (for PDF output) / SVG (for DOCX/PPTX output)
-- **Raster fallback**: ≥ 300 DPI (EM images, gel photos)
-- **Width anchoring**:
-  - Single-column: `89mm`
-  - Double-column: `183mm`
-
-### Bibliography
-
-- Mount `references.bib` at workspace root
-- Use `nature.csl` — sequential superscript citation `[1]`
-- In-text: `[@key2024]`
-
----
-
-## Defense Mechanisms
-
-The skill includes three hardcoded stress-test defense algorithms to prevent generation failures:
-
-### 1. Massive Table Truncation
-
-> **IF** table rows > 10 OR columns > 6
-> **THEN** output only first 5 rows with external Python conversion script placeholder.
-
-### 2. Bracket Closure Audit
-
-> All `$`, `{`, `[`, `(` must pass stack-matching check before output.
-> Display formulas (`$$...$$`) must occupy entire lines with blank lines above and below.
-
-### 3. Relative Path Drift Warning
-
-> Before any path-involving code, emit a runtime path warning block declaring the expected workspace root.
-
----
-
-## Pre-Compilation Checklist
-
-- [ ] Gene symbols italic (`*Gene*`), proteins upright
-- [ ] DNA/RNA sequences: thin-space grouped every 10 bases
-- [ ] Physical quantities: `\qty{}{}` wrapping, no bare `25°C`
-- [ ] Zero Unicode superscripts (`³`, `⁻` → `^3`, `^-`)
-- [ ] Vector graphics preferred; raster ≥ 300 DPI
-- [ ] PPTX density: ≤ 7 list items per slide
-- [ ] All brackets closed (stack-match verified)
-- [ ] `xelatex --version` passes before PDF compilation
-
----
-
-## File Structure
+## 结构
 
 ```
 academic-typesetting/
-├── SKILL.md                        # Main skill definition
-├── README.md                       # This file
+├── SKILL.md                     # 路由：什么时候用、六条硬规则、故障速查
+├── references/                  # 按需加载，不要全读
+│   ├── cjk-typography.md        # 字号、缩进、标点、题注、三线表、参考文献体系
+│   ├── latex-pdf.md             # 文档类、几何、浮动体、列宽、原始 LaTeX 块的坑
+│   ├── non-latex.md             # DOCX/PPTX：lua 过滤器、参考模板、五条线修正
+│   ├── figures.md               # 矢量、按印刷宽度作图、图内字体、matplotlib 陷阱
+│   └── qa-gate.md               # 量什么、阈值、失败怎么修
+├── scripts/
+│   ├── qa_pdf.py                # 交付闸：字体/页填充/越界/位图/编号/元数据
+│   └── contact_sheet.py         # 全部页面拼一张联系表，一眼找留白
 ├── templates/
-│   ├── nature_style.docx           # DOCX reference template
-│   ├── academic_style.pptx         # PPTX reference template
-│   └── setup_templates.py          # One-time initializer
-├── assets/                         # Figure storage
-└── output/                         # Compiled output
+│   ├── header-cn.tex            # 实测可用的中文前导（含 \tabref/\figref）
+│   ├── academic-header.tex      # 西文/英文布局变体
+│   ├── nature.csl               # Nature 风；带 zh-CN locale 覆盖块
+│   ├── nature_style.docx        # DOCX 参考模板
+│   ├── academic_style.pptx      # PPTX 参考模板
+│   ├── setup_templates.py       # 重建上面两个模板
+│   └── fix_docx_tables.py       # 去掉 Word 里的"五条线"
+└── filters/
+    └── latex-macros-to-unicode.lua   # \ce{} / \qty{} → Unicode（仅 docx/pptx）
 ```
+
+## 快速开始
+
+```bash
+# 0. 一次性的模板生成（改过 §3 的参数后重跑）
+python templates/setup_templates.py
+
+# 1. 编译（项目自带 build 脚本优先）
+pandoc src/report.qmd -o output/report.pdf --pdf-engine=xelatex \
+  --include-in-header=templates/header-cn.tex \
+  --citeproc --bibliography=references.bib --csl=templates/nature.csl \
+  --number-sections --resource-path=".;src;assets" \
+  -V documentclass=article -V fontsize=11pt -V papersize=a4 \
+  -V "geometry:top=2.2cm,bottom=2.2cm,left=2.5cm,right=2.5cm"
+
+# 2. 看一眼全局
+python scripts/contact_sheet.py output/report.pdf
+
+# 3. 过闸
+python scripts/qa_pdf.py output/report.pdf --lang zh
+```
+
+## 引擎选择
+
+| 场景 | 用什么 |
+| --- | --- |
+| 需要交叉引用 + 多格式，环境允许 spawn | Quarto（`@fig-`/`@tbl-` 原生编号） |
+| 沙箱禁止 spawn `cmd.exe`，或只要 PDF | pandoc + xelatex（编号用 `\label`/`\ref`） |
+| 纯中文报告/学位论文 | `ctexart`（自带 `\zihao`、断行、中文图表名） |
+| 中英混排、期刊风 | `article` + `templates/header-cn.tex` |
+
+## 测量闸抓什么
+
+`qa_pdf.py` 的 18 项里，最能抓到真问题的是这四个：
+
+- **页填充率**：非末页低于 85% 就是浮动体掉页留下的洞。
+- **字体回退**：出现 DejaVu / LatinModernMath，说明图里用了 mathtext 或正文里写了 `$>$`。
+- **位图**：`page.get_images()` 非空，说明本该矢量的图被导成了 PNG。
+- **编号连续**：表 1,2,2,4 这种跳号/重号，几乎都来自手写编号。
+
+## 已知边界
+
+- PPTX 母版未定制，正式交付前需要手动过一遍。
+- `qa_pdf.py` 的编号检查用"字号小于正文 / 居中短句"判断题注，极端模板（题注与正文同号同宽）可能漏检。
+- 只覆盖 XeLaTeX 链；LuaLaTeX/pdflatex 的中文路径未验证。
 
 ## License
 
-MIT — Use, modify, and distribute freely. Attribution appreciated.
-
----
-
-*Built for Claude Code. Nature is a registered trademark of Springer Nature Limited. This skill is an independent project and not affiliated with Springer Nature.*
+MIT。Nature 是 Springer Nature 的注册商标；本项目独立开发，与其无关联。

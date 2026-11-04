@@ -1,286 +1,95 @@
 ---
 name: academic-typesetting
-description: Integrated academic typography engine utilizing Quarto for single-source publishing (PDF, DOCX, PPTX). Enforces Nature-grade layout geometry, strict font discipline, bioinformatics nomenclature, vector graphics scaling, and Zotero CSL automated citation. Triggers on 排版/论文/报告/幻灯片/基因编辑/生信/PDF/DOCX/PPTX/quarto/三线表.
+description: 学术文档的排版与交付引擎——单一 Markdown 源出 PDF/DOCX/PPTX，管字体字号、三线表、图表题注、浮动体位置、CJK 断行与参考文献样式，并用脚本量测交付质量。触发：排版/论文/报告/幻灯片/三线表/PDF/DOCX/PPTX/学位论文/课程报告/中文排版/quarto。
 ---
 
-# Integrated Academic Typesetting Skill
+# 学术排版引擎
 
-## Part 0: Shared Academic Typography Meta-Specifications
+管"把内容生产成能交付的文件"，不管"内容从哪来"。
 
-### 0.1 Cross-Platform Bilingual Font Stack
+## 0 分工——先确认该不该我出场
 
-| Role | PDF / DOCX (Print) | PPTX (Projection) |
+| 请求 | 归属 |
+| --- | --- |
+| 写/改正文、摘要、引言、投稿信、开题 | nature-writing |
+| 英文润色、句式、投稿前自审 | nature-polishing |
+| 数据图怎么画（柱状/热图/森林图/面板） | nature-figure |
+| 黑白矢量示意图、位点图 | figkit-bw-figure |
+| **已有内容排成可交付的 PDF/DOCX/PPTX** | **本 skill** |
+
+同时被触发时不重复劳动：让 nature-* 出文字，本 skill 只负责落地成文件。
+
+## 1 六条硬规则
+
+1. **先量，后改。** 任何版面判断都要经过 `编译 → 渲染成图 → 量 → 动手`。只看 `.tex` 猜版面必错。
+2. **字体字号显式声明。** 正文 Times New Roman + 宋体，标题黑体，等宽 Consolas。不依赖任何默认。
+3. **编号交给环境。** LaTeX 里用 `\label`/`\ref`，Quarto 里用 `@fig-`/`@tbl-`；手写"表1"在插入新表后必错。
+4. **中文正文：首行缩进 2 字符、段间距 0、行距 1.4–1.5×字高。** 西文网页式 `parskip` 不要套到中文报告上。
+5. **浮动体位置是试出来的，不是设出来的。** 每页版心要接近占满足（≥ 85%），大片留白算缺陷。
+6. **交付前必须过闸：** `python scripts/qa_pdf.py <pdf> --lang zh --fonts SimSun,SimHei,TimesNewRoman`，有 FAIL 不许交。
+
+## 2 引擎与文档类选择
+
+| 场景 | 用什么 | 理由 |
 | --- | --- | --- |
-| **Body Latin** | Times New Roman (**Serif**) | Arial / Helvetica (**Sans-serif**) |
-| **Body CJK** | SimSun / 宋体 (**Serif**) | SimHei / 黑体 (**Sans-serif**) |
-| **Heading Latin** | Times New Roman Bold (**Serif**) | Arial Bold (**Sans-serif**) |
-| **Heading CJK** | STZhongsong / 黑体 (**Serif/Sans**) | SimHei / 黑体 (**Sans-serif**) |
-| **Monospace (Code/Seq)** | Consolas / Courier New | Consolas |
+| 沙箱允许 spawn、需要交叉引用 + 多格式 | **Quarto** | `@fig-`/`@tbl-` 原生编号；一份源出 pdf/docx/pptx |
+| 沙箱禁止 spawn `cmd.exe`、只要 PDF | **pandoc + xelatex** | 已实测可用；编号改 `\label`/`\ref`，其余能力等价 |
+| 纯中文课程报告 / 学位论文 | **ctexart / ctexbook** | 自带 `\zihao` 字号、CJK 断行、中文图表名，省掉手工 xeCJK |
+| 中英混排、期刊风格 | `article` / `extarticle` + 自带 `templates/header-cn.tex` | 控制力最强 |
 
-### 0.2 Bioinformatics & Gene-Editing Nomenclature Constraints
+**字号陷阱（实测）：** `extarticle` 只认 8/9/10/11/12/14/17/20pt。写 `fontsize: 10.5pt` 会被静默忽略并退回 10pt——日志里只有一行 `Unused global option(s)`。要精确五号（10.5pt）用 ctex 的 `\zihao{5}`；否则用 article 11pt（≈ 小四偏小）并接受它不是五号。
 
-- **Gene Locus & Symbols:** Forced italic via Markdown `*...*`. Examples: *Cas9*, *PIK3CA*, *AAV9*, *pegRNA*.
-- **Protein Symbols:** MUST be upright (roman). Examples: Cas9, PIK3CA, Reverse Transcriptase.
-- **Nucleotide/Amino Acid Sequences:** MUST use inline code backticks (`) or code blocks. **When single-line sequence length > 10 bases, insert a thin space (Unicode `U+2009`) every 10 bases**, and enforce no-wrap on the line.
-- **Mutation Annotation (HGVS Standard):** Strict HGVS nomenclature. Protein variants in upright three-letter/single-letter codes (e.g., `p.Gly12Val`). cDNA variants in upright (e.g., `c.35G>A`).
+## 3 工作循环
 
-### 0.3 High-Resolution Vector Graphics Control
-
-- **Format Priority:** Imported figures must prioritize vector formats: PDF for PDF backend, SVG for Word/PPTX backend. If raster images (EM, gel images) are used, resolution must be ≥ **300 DPI**.
-- **Geometric Dimensioning:**
-  - **Single-column Width:** Strictly anchored at `89mm`.
-  - **Double-column Width:** Strictly anchored at `183mm`.
-- **Figure Internal Font Sync:** When exporting figures from R (ggplot2) or Python (Seaborn), internal text fonts must be hardcoded as `Arial` or `Helvetica`. Default non-embedded raster fonts are prohibited.
-
-### 0.4 Bibliography Automation
-
-- **Data Source Binding:** Workspace root MUST mount a `references.bib` file.
-- **Style Lock:** Use `nature.csl` style file, enforcing sequential superscript citation numbering (e.g., `[1]`).
-- **Chinese-document locale handling — already built into the shipped `nature.csl`:** with `lang: zh-CN` set, citeproc otherwise formats the bibliography using Chinese locale conventions, producing page ranges like `123～130` and years like `2024 年` — wrong for a Nature-style reference list. The shipped `nature.csl` therefore carries an `<locale xml:lang="zh-CN">` block that forces the English year form and an en-dash page delimiter, so a Chinese manuscript gets Chinese cross-reference prefixes ("表1") *and* an English-format reference list. **Do not remove that block, and never overwrite the file with a pristine download of `nature.csl`** — doing so silently restores `123～130 (2024 年)`.
-
----
-
-## Part 1: Quarto Compilation Engine Profiles
-
-### 1.1 Environment Pre-flight Check
-
-Before any compilation, verify the Quarto binary and the local LaTeX compiler are both reachable:
+下文用 `$S` 指代本 skill 目录（`~/.claude/skills/academic-typesetting`），因为脚本不在项目里。
 
 ```bash
-quarto --version    # this machine: C:\Program Files\Quarto\bin\quarto.exe
-xelatex --version   # this machine: MiKTeX, C:\Users\35606\AppData\Local\Programs\MiKTeX\miktex\bin\x64\
+# ① 编译：项目自带的 build 脚本优先；没有就直接调 pandoc / quarto
+quarto render src/report.qmd --to pdf        # 或 README 里的 pandoc 命令
+
+# ② 联系表：全部页面拼一张，一眼看留白、掉页、浮动体漂移
+python "$S/scripts/contact_sheet.py" output/report.pdf
+
+# ③ 量测：字体嵌入 / 页填充率 / 越界 / 位图 / 编号连续 / 元数据
+python "$S/scripts/qa_pdf.py" output/report.pdf --lang zh
+
+# ④ 对着 FAIL/WARN 改，回到 ①
 ```
 
-If `quarto` is not found, fall back to the Pandoc commands in §1.4 — but the fallback path is materially weaker (no native cross-reference resolution), so prefer installing Quarto over relying on it.
+量什么、阈值多少、每种失败怎么修，见 `references/qa-gate.md`。
 
-If `xelatex` is not found, Quarto cannot convert AST to PDF. In that case, trigger degradation: prompt the user to export DOCX first, then save as PDF from Word.
+## 4 参考文件——按需加载，不要全读
 
-### 1.2 Unified Single-Source Configuration (`src/report.qmd` YAML Frontmatter)
+| 文件 | 什么时候读 |
+| --- | --- |
+| `references/cjk-typography.md` | 定字号、缩进、标点、图表题注、三线表线宽、参考文献体系 |
+| `references/latex-pdf.md` | PDF 路径：文档类、几何、浮动体、表格列宽、原始 LaTeX 块的坑 |
+| `references/non-latex.md` | 出 DOCX/PPTX：lua 过滤器、参考模板、三线表修正 |
+| `references/figures.md` | 插图：矢量、按印刷宽度作图、图内字体、matplotlib 陷阱 |
+| `references/qa-gate.md` | 每次交付前；以及版面出问题时的诊断顺序 |
 
-```yaml
----
-title: "High-Throughput Screen of Split-Prime Editing Systems"
-author: "Academic Researcher"
-date: 2026-06-04
-lang: zh-CN
-bibliography: ../references.bib
-csl: ../templates/nature.csl
+同时在 `templates/`：`header-cn.tex`（实测可用的中文前导）、`nature.csl`、DOCX/PPTX 参考模板、`setup_templates.py`、`fix_docx_tables.py`；在 `filters/`：`latex-macros-to-unicode.lua`。
 
-format:
-  pdf:
-    pdf-engine: xelatex
-    documentclass: extarticle
-    fontsize: 10.5pt
-    linestretch: 1.35
-    geometry: "top=2.2cm, bottom=2.2cm, left=2.2cm, right=2.2cm"
-    mainfont: "Times New Roman"
-    sansfont: "Arial"
-    monofont: "Consolas"
-    include-in-header:
-      - text: |
-          \usepackage{mhchem}
-          \usepackage{siunitx}
-          \usepackage{booktabs}
-          % parskip 已由 Quarto 的 LaTeX 模板加载；此处不可再 \usepackage[options]{parskip}，
-          % 否则报 "Option clash for package parskip" 并中断编译。改直接设长度。
-          \setlength{\parskip}{8pt}
-          \setlength{\parindent}{0pt}
-          \widowpenalty=10000
-          \clubpenalty=10000
-          
-  docx:
-    reference-doc: ../templates/nature_style.docx
-    # REQUIRED: DOCX/PPTX have no LaTeX engine. Without this filter
-    # \qty{}{} is dropped silently and \ce{} prints as literal text.
-    filters:
-      - ../filters/latex-macros-to-unicode.lua
-    toc: false
-    number-sections: true
+## 5 常见故障速查
 
-  pptx:
-    reference-doc: ../templates/academic_style.pptx
-    filters:
-      - ../filters/latex-macros-to-unicode.lua
-    slide-level: 2
----
-```
-
-### 1.3 VS Code Local Automation Task Pipeline (`.vscode/tasks.json`)
-
-```json
-{
-  "version": "2.0.0",
-  "tasks": [
-    {
-      "label": "Quarto Compile All Formats",
-      "type": "shell",
-      "command": "quarto render ${file} --output-dir ../output",
-      "group": {
-        "kind": "build",
-        "isDefault": true
-      },
-      "options": {
-        "cwd": "${workspaceFolder}/src"
-      },
-      "problemMatcher": []
-    }
-  ]
-}
-```
-
-### 1.4 Pandoc Fallback Commands (Quarto unavailable)
-
-```bash
-# PDF
-# --include-in-header 是必需的：缺了它 \ce{} (mhchem) 和 \qty{}{} (siunitx) 会编译失败。
-# --citeproc 三件套同理，缺了它引文不渲染，上标编号消失。
-pandoc report.md -o output/report.pdf --pdf-engine=xelatex \
-  --include-in-header=templates/academic-header.tex \
-  --citeproc --bibliography=references.bib --csl=templates/nature.csl \
-  -V mainfont="Times New Roman" -V CJKmainfont="Noto Serif SC" \
-  -V documentclass=extarticle -V fontsize=10.5pt \
-  -V geometry:"top=2.2cm, bottom=2.2cm, left=2.2cm, right=2.2cm"
-
-# DOCX
-pandoc report.md -o output/report.docx --reference-doc=templates/nature_style.docx \
-  --citeproc --bibliography=references.bib --csl=templates/nature.csl
-
-# PPTX
-pandoc report.md -o output/report.pptx --reference-doc=templates/academic_style.pptx
-```
-
----
-
-## Part 2: Semantic Markdown Academic Writing Syntax
-
-### 2.1 Canonical Text Example
-
-```markdown
-## Introduction
-
-The optimization of *Prime Editing* vectors requires precise spatial control of the split-*SpCas9* architecture [@an理论2024]. As illustrated in @fig-pipeline, the concentration of $\ce{Mg^2+}$ ions was strictly maintained at \qty{1.5}{\milli\mole\per\litre} within the reaction buffer.
-
-The synthetic pegRNA extension sequence was verified as:
-`5'-ATGCGA TGCCGA TGCATC GATCGAT-3'`
-
-## Results
-
-Statistical significance was observed between the two groups (@tbl-metrics), with a final clearing rate calculated via $1000 \times g$ centrifugation.
-
-![Architecture of Split-Prime Editing Pipeline](../assets/pipeline.svg){#fig-pipeline width=183mm}
-
-| System Variant | Editing Efficiency (%) | Off-target Indels (%) |
-|:---|:---|:---|
-| PE3 (Standard) | $23.4 \pm 1.2$ | $0.45 \pm 0.02$ |
-| Split-PE (Engineered) | $45.8 \pm 2.1$ | $< 0.01$ |
-
-: Specific editing metrics and fidelity assessments {#tbl-metrics}
-```
-
-### 2.2 Key Syntax Rules
-
-- **Chemical formulas**: Always `$\ce{...}$` wrapped in math inline delimiters.
-- **Physical quantities**: Always `\qty{number}{unit}`. Number and unit separated by non-breaking space (handled by siunitx). Prefixes are lowercase: `\milli`, `\micro`, `\nano`.
-- **Unit macro facts — verified against siunitx v3.5.5, do not guess:** there is **no `\molar` macro** (and none in v2 capitalised form either — `\Molar` is equally undefined). Molarity must be spelled `\mole\per\litre`, so 1.5 mM is `\qty{1.5}{\milli\mole\per\litre}`. Confirmed working macros: `\mole`, `\litre`, `\gram`, `\meter`, `\second`, `\minute`, `\degreeCelsius`, `\per`. A literal unit string also works and is the safest fallback: `\qty{1.5}{mmol/L}`. An undefined unit macro aborts the entire compilation, not just the one line.
-- **Gene symbols**: `*GENE_NAME*` (italic).
-- **Protein symbols**: Plain text `PROTEIN_NAME` (upright).
-- **Sequences**: Backtick-wrapped with thin-space grouping every 10 bases.
-- **Ranges**: Use en-dash `--` (e.g., pH 5.5--6.5), NEVER bare `~`.
-- **Tables**: Pipe table format, caption BELOW table with `: Caption {#tbl-id}`.
-- **Cross-references**: Write the bare `@tbl-id` / `@fig-id`. Quarto and Pandoc both supply the `表`/`Table` prefix themselves — writing `表 @tbl-id` produces the doubled "表 表 1".
-- **Figures**: Caption ABOVE or BELOW image, vector format preferred, width anchored.
-
----
-
-## Part 3: Reference Template Architecture & Initialization Script
-
-### 3.0 Non-LaTeX Format Pipeline (DOCX / PPTX)
-
-DOCX and PPTX have **no LaTeX engine**, which breaks three things that work fine in PDF. All three are handled by the shipped assets — but they only work if you wire them up.
-
-**Step 1 — the Lua filter (mandatory).** `filters/latex-macros-to-unicode.lua` rewrites the two LaTeX-only constructs into Unicode. Register it under `filters:` in both the `docx` and `pptx` format blocks, as shown in §1.2. Without it:
-
-| Source | PDF | DOCX/PPTX without filter |
+| 症状 | 真正的原因 | 修法 |
 | --- | --- | --- |
-| `$\ce{Mg^2+}$` | Mg²⁺ | literal text `$\ce{Mg^2+}$` |
-| `\qty{1.5}{\milli\mole\per\litre}` | 1.5 mmol L⁻¹ | **silently vanishes** — no warning |
+| 编译报 `Extra alignment tab` / `Misplaced \noalign` | 表格某行里有没转义的 `%`，把后半行注释掉了 | 表格内写 `\%`；`>` 直接写，别包 `$>$`（会引进数学字体） |
+| 原始 LaTeX 块里出现字面星号 | markdown 斜体在 raw block 里不生效 | 用 `\textit{}` |
+| 某页下方空一大块 | 一个 `[H]` 表格/图放不下，被推到下一页 | 表格改 `[!t]` 让正文填满本页；或把它前面那段导语挪到表后，让表提前几行落位 |
+| 浮动体落在离引用两页远的地方 | 队列里有更大的浮动体堵着 | 先放小表后放大表；或给大表 `[!t]` 单独占页顶 |
+| 图比版心宽 2–3pt，日志报 Overfull | `bbox_inches='tight'` 默认带 pad，图比画布宽一点 | `\includegraphics[width=\linewidth]` 强制贴合 |
+| 图里出现无衬线数字/符号 | matplotlib 的 mathtext 回退到 DejaVu | 图内别写 `$...$`（写"二氧化碳"、`g / L`）；或设 `mathtext.fontset=custom` |
+| 参考文献页码变成 `123～130 (2024 年)` | citeproc 走了中文 locale | 用 `templates/nature.csl`，它带 `<locale zh-CN>` 覆盖块，别拿官方文件覆盖 |
+| 中文里"表 1"和"1"之间空格时有时无 | 编号与题名之间是 `\labelsep`，不是手打的空格 | `\captionsetup{labelsep=quad}` |
 
-The filter covers charges, subscripts and the unit macros it knows (`\milli\mole\per\litre` → `mmol L⁻¹`, `\degreeCelsius` → `°C`, `\micro\gram` → `µg`, …). It does **not** cover full mhchem — reactions with conditions, state symbols, complex isotope notation. For a DOCX-bound document, hand-write those in Unicode rather than trusting the filter.
+## 6 交付版面基线（中文课程报告 / 综述）
 
-**Step 2 — strip the caption wrapper (mandatory for DOCX).** Quarto wraps every captioned table in a 1×1 layout table, and that wrapper carries the same `Table` style as the data table. The style's top and bottom rules then draw an extra box, so the page shows **five** horizontal rules instead of three. Run after rendering:
+- A4，页边距 2.2–2.5 cm，正文 11pt 宋体/Times，行距 1.17（≈1.4×字高）
+- 标题黑体：一级 14pt、二级 12pt、三级 11pt，段前 15/12/10pt、段后 7/5/4pt
+- 表：`\footnotesize` + `\arraystretch` 1.0–1.15 + 定宽 `p{}` 右不齐；三线 1.5/0.75/1.5pt
+- 图：矢量 PDF，宽度 = 版心宽，图题在下；图内字号 = 印刷字号（按宽度作图，不缩放）
+- 参考文献：正文上标编号，列表 `\small`/`\footnotesize` 悬挂缩进
+- 页眉左标题右作者学号，首页不显示页眉；页脚居中页码
 
-```bash
-python templates/fix_docx_tables.py output/report.docx
-```
-
-It forces wrapper tables borderless (those containing a nested table) and leaves real data tables on the three-line style.
-
-**Order of operations for a DOCX deliverable:** `quarto render … --to docx` → `python templates/fix_docx_tables.py <file>`.
-
-### 3.1 Style Reference Matrices
-
-- **`nature_style.docx`**: derived from **Pandoc's own default reference document**, so every style its writer expects is present (`Table`, `Table Caption`, `Body Text`, `Compact`, `Bibliography`, …). Body font `Times New Roman` (Latin) / `SimSun` (CJK) at 10.5pt, line spacing 1.35x. The `Table` style carries a **Three-line Table** preset: 1.5pt top and bottom rules, a 0.75pt rule under the header row, no vertical or inner rules. (Generating this file from a blank python-docx `Document()` instead — as an earlier version of §3.2 did — drops all those styles.)
-- **`academic_style.pptx`**: 16:9 canvas (13.333in × 7.5in). Slide-master typography is **not** yet customised — headings and body inherit python-pptx's default theme.
-
-### 3.2 Automated Initialization Script (`templates/setup_templates.py`)
-
-```bash
-python templates/setup_templates.py
-```
-
-The script derives `nature_style.docx` from `pandoc --print-default-data-file reference.docx` and then applies the §3.1 typography on top, so every style Pandoc's DOCX writer expects survives. It also emits the 16:9 `academic_style.pptx` and creates the `output/` and `assets/` directories. Re-run it whenever §3.1 changes — the script is the source of truth, not this document.
-
----
-
-## Part 4: Stress Testing Defense Mechanisms & Hardcore Pre-Compilation Audit Checklist
-
-### 4.1 Extreme Scenario Defense Algorithms
-
-#### [Stress Test 1] Massive Bioinformatics Differential Expression Gene Table Injection
-
-- **Risk:** Claude attempts to output a full Markdown table containing tens of thousands of tokens, causing context window exhaustion and data degradation.
-- **Model Execution Block Algorithm:**
-  > **IF** detected table row count > 10 OR column count > 6
-  > **THEN** trigger data truncation mechanism. Claude outputs only the first 5 sample rows, and auto-inserts a Python external conversion script placeholder below:
-
-  ````markdown
-  | Gene | log2FC | p-value | FDR |
-  |:-----|:-------|:--------|:----|
-  | *TP53* | 2.34 | 0.001 | 0.015 |
-  | ... | ... | ... | ... |
-
-  ```python
-  import pandas as pd
-  df = pd.read_csv("../assets/deg_data.csv")
-  print(df.head(5).to_markdown())  # User should stream the output into the qmd document
-  ```
-  ````
-
-#### [Stress Test 2] Deeply Nested Complex Formulas & Chemical Modifications
-
-- **Risk:** Complex mathematical matrices or `mhchem` formulas with unmatched brackets cause local XeLaTeX/Pandoc compilation thread deadlock.
-- **Model Execution Block Algorithm:**
-  - **Enforce "Display Formula Absolute Isolation Principle"**: All `$$` blocks MUST occupy entire lines, with blank lines above and below.
-  - **Trigger Character Closure Audit**: Top-down stack-matching check on generated strings, ensuring `$`, `{`, `[`, `(` are 100% closed. If not closed, REFUSE to submit output.
-
-#### [Stress Test 3] VS Code Relative Path Drift
-
-- **Risk:** User opens VS Code in a subdirectory, causing `../templates/` relative path breakage.
-- **Model Execution Block Algorithm:**
-  - Before any path-involving code output, MUST throw a hard warning block at the top, declaring workspace directory hierarchy:
-
-  ```markdown
-  > [RUNTIME PATH WARNING] Ensure VS Code workspace root is set to project base folder.
-  > Compilation commands rely on relative tracking: current target = ${workspaceFolder}/src
-  ```
-
-### 4.2 Pre-Compilation Hardcore Audit Checklist
-
-Before final code delivery to local VS Code, Claude MUST run through all of the following checks internally:
-
-- [ ] **Gene Italic Compliance Rate:** Verify ALL `*Cas9*`, `*Ref-1*` etc. have italics applied, and ALL corresponding proteins have italics stripped.
-- [ ] **Thin-Space Completeness:** Check DNA/RNA sequence strings — does every 10-base group have ` ` or `\quad` separation.
-- [ ] **Physical Quantity Thin Space:** Check for bare `25°C` or `15min` — must ALL be converted to `\qty{25}{\degreeCelsius}` or `\qty{15}{\minute}`.
-- [ ] **Zero Unicode Superscripts:** Check for `³` or `⁻` characters directly copied from external literature — must ALL be cleaned to standard LaTeX syntax `^3` or `^-`.
-- [ ] **Vector Graphic Resolution Block:** Check all referenced image formats — if PNG/JPG, has user confirmed resolution ≥ **300 DPI** for Nature-grade print standard.
-- [ ] **PPTX Density Block:** Check PPTX mode — number of unordered list items under each `##` heading must be strictly ≤ 7 lines.
+数字与单位之间留 1/4 空（`135 g/L`、`531 kb`），不要写成 `135g/L`。
