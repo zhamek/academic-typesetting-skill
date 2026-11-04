@@ -27,6 +27,7 @@ academic-typesetting/
 │   └── qa-gate.md               # 量什么、阈值、失败怎么修
 ├── scripts/
 │   ├── qa_pdf.py                # 交付闸：字体/页填充/越界/位图/编号/元数据
+│   ├── md_tables_to_latex.py   # 管道表 → 定宽三线表（保文字，只换版式）
 │   └── contact_sheet.py         # 全部页面拼一张联系表，一眼找留白
 ├── templates/
 │   ├── header-cn.tex            # 实测可用的中文前导（含 \tabref/\figref）

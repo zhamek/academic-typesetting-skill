@@ -45,6 +45,9 @@ description: 学术文档的排版与交付引擎——单一 Markdown 源出 PD
 
 ```bash
 # ① 编译：项目自带的 build 脚本优先；没有就直接调 pandoc / quarto
+#    若源文件还是管道表，先换列宽（pandoc 默认四列等宽，中文会被拉散）：
+python "$S/scripts/md_tables_to_latex.py" src/report.qmd \
+    --widths 2.2,4.45,4.45,3.95 --floats H,t,H,t --write
 quarto render src/report.qmd --to pdf        # 或 README 里的 pandoc 命令
 
 # ② 联系表：全部页面拼一张，一眼看留白、掉页、浮动体漂移
