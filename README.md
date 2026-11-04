@@ -20,10 +20,15 @@ User writes .qmd (Markdown + LaTeX)
        ▼
    Quarto / Pandoc compile
        │
-       ├──→ PDF   (xelatex + mhchem + siunitx)
-       ├──→ DOCX  (reference-doc: nature_style.docx)
-       └──→ PPTX  (reference-doc: academic_style.pptx)
+       ├──→ PDF   (xelatex + mhchem + siunitx)          — native LaTeX
+       ├──→ DOCX  (reference-doc + lua filter)  ──→ fix_docx_tables.py
+       └──→ PPTX  (reference-doc + lua filter)
 ```
+
+DOCX/PPTX have no LaTeX engine, so they additionally require
+`filters/latex-macros-to-unicode.lua` (rewrites `\ce{}` and `\qty{}` to Unicode)
+and, for DOCX, a post-render pass of `templates/fix_docx_tables.py` (removes the
+stray rules Quarto's caption-wrapper table would otherwise draw). See SKILL.md §3.0.
 
 ## Quick Start
 
@@ -75,6 +80,10 @@ quarto render src/report.qmd --output-dir output
 quarto render src/report.qmd --to pdf
 quarto render src/report.qmd --to docx
 quarto render src/report.qmd --to pptx
+
+# DOCX REQUIRES a post-render pass — skipping it leaves five rules
+# around every captioned table instead of three.
+python templates/fix_docx_tables.py output/report.docx
 ```
 
 ### Project Directory Convention

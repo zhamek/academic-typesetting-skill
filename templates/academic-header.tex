@@ -1,0 +1,11 @@
+% Pandoc fallback preamble — mirrors the include-in-header block of the Quarto YAML in SKILL.md §1.2.
+% Without this, $\ce{...}$ (mhchem) and \qty{}{} (siunitx) fail to compile.
+\usepackage{mhchem}
+\usepackage{siunitx}
+\usepackage{booktabs}
+% parskip 已由 Quarto/pandoc 模板加载；不可再 \usepackage[options]{parskip}，
+% 否则报 "Option clash for package parskip"。改直接设长度，两条路径都安全。
+\setlength{\parskip}{8pt}
+\setlength{\parindent}{0pt}
+\widowpenalty=10000
+\clubpenalty=10000
