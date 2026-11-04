@@ -63,6 +63,7 @@ python "$S/scripts/qa_pdf.py" output/report.pdf --lang zh
 | 文件 | 什么时候读 |
 | --- | --- |
 | `references/cjk-typography.md` | 定字号、缩进、标点、图表题注、三线表线宽、参考文献体系 |
+| `references/nomenclature.md` | 基因/蛋白正斜体、物种名、序列分组、HGVS、化学式与单位 |
 | `references/latex-pdf.md` | PDF 路径：文档类、几何、浮动体、表格列宽、原始 LaTeX 块的坑 |
 | `references/non-latex.md` | 出 DOCX/PPTX：lua 过滤器、参考模板、三线表修正 |
 | `references/figures.md` | 插图：矢量、按印刷宽度作图、图内字体、matplotlib 陷阱 |

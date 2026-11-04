@@ -20,6 +20,7 @@ academic-typesetting/
 ├── SKILL.md                     # 路由：什么时候用、六条硬规则、故障速查
 ├── references/                  # 按需加载，不要全读
 │   ├── cjk-typography.md        # 字号、缩进、标点、题注、三线表、参考文献体系
+│   ├── nomenclature.md          # 基因/蛋白正斜体、物种名、序列、HGVS、单位
 │   ├── latex-pdf.md             # 文档类、几何、浮动体、列宽、原始 LaTeX 块的坑
 │   ├── non-latex.md             # DOCX/PPTX：lua 过滤器、参考模板、五条线修正
 │   ├── figures.md               # 矢量、按印刷宽度作图、图内字体、matplotlib 陷阱
@@ -42,7 +43,7 @@ academic-typesetting/
 ## 快速开始
 
 ```bash
-# 0. 一次性的模板生成（改过 §3 的参数后重跑）
+# 0. 一次性的模板生成（改过 setup_templates.py 里的参数后重跑）
 python templates/setup_templates.py
 
 # 1. 编译（项目自带 build 脚本优先）
