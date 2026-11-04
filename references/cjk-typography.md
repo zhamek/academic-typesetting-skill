@@ -87,11 +87,19 @@
 
 ## 7 参考文献体系
 
-| 场景 | 用哪套 | 说明 |
+| 场景 | 用哪套 | 怎么接 |
 | --- | --- | --- |
-| 课程报告、学位论文、中文期刊 | **GB/T 7714**（顺序编码制） | 从 Zotero Style Repository 取 `china-national-standard-gb-t-7714-2015-numeric.csl`，不要手写条目 |
-| 投英文期刊、Nature 系 | **`templates/nature.csl`** | 上标编号、作者缩写、`817–837 (2019)` 形式 |
+| 课程报告、学位论文、中文期刊 | **GB/T 7714**（顺序编码制） | `typeset.yaml` 里 `citations: gbt`，走 gbt7714（MiKTeX 自带） |
+| 投英文期刊、Nature 系 | **`templates/nature.csl`** | 默认路径，citeproc 一次过 |
 | 导师另有要求 | 按导师的 | — |
+
+**GB/T 7714 这条链要注意三件事（都实测过）：**
+
+1. `\bibliographystyle` 只能在**一处**出现——pandoc 已按 `-V biblio-style=gbt7714-numeric` 输出一条，
+   头文件里再写一条会让 bibtex 报 `Illegal, another \bibstyle command` 并放弃整个文献表。
+2. `.tex` 要落在项目根目录编译，不能放 `output/`：wrapper、前导、`.bib` 都是相对根的路径。
+3. 本机 MiKTeX 的 bibtex 约七成概率在退出时崩溃（`0xC0000374`），失败时 `.bbl` 是 0 字节。
+   `build.py` 会重试到产出非空 `.bbl`（10 次内基本必成）。换 TeX Live 可避开这个问题。
 
 `nature.csl` 里带了一个 `<locale xml:lang="zh-CN">` 覆盖块，作用是防止中文 locale 把页码写成 `123～130`、年份写成 `2024 年`。
 **不要用官方原版覆盖它**，覆盖后会静默恢复中文全角符号。

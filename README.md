@@ -29,11 +29,13 @@ academic-typesetting/
 │   ├── build.py                 # 配置驱动构建：typeset.yaml → 文件 + 每页填充率
 │   ├── qa_pdf.py                # PDF 闸：字体/页填充/越界/位图/编号/孤儿标题
 │   ├── qa_docx.py               # Word 闸：纸张/边距/中英文字体/竖线/题注/图片 dpi
+│   ├── preflight.py             # 编译前：字体缺字、工具是否可得
 │   ├── md_tables_to_latex.py    # 管道表 → 定宽三线表（保文字，只换版式）
 │   └── contact_sheet.py         # 全部页面拼一张联系表，一眼找留白
 ├── templates/
 │   ├── header-cn.tex            # 单栏中文前导（含 \tabref/\figref）
 │   ├── header-paper.tex         # 双栏论文版式（10pt、Noto Serif、跨栏图表）
+│   ├── gbt-on.tex              # 开关：让前导加载 gbt7714（GB/T 7714 参考文献）
 │   ├── typeset.example.yaml     # build.py 的配置模板
 │   ├── academic-header.tex      # 西文/英文布局变体
 │   ├── nature.csl               # Nature 风；带 zh-CN locale 覆盖块

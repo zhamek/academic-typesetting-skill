@@ -23,6 +23,13 @@ fonts: SimSun,SimHei,TimesNewRoman      # 交给 qa_pdf.py 的 --fonts；用思�
 # fontsize: 10pt
 # header: <SKILL>/templates/header-paper.tex
 
+# ---- GB/T 7714 参考文献（中文报告/学位论文）----
+# 把 citations 改成 gbt，build.py 会走 pandoc --natbib + bibtex 四遍编译。
+# header 仍用 header-cn.tex（它内部按 \usegbt 加载 gbt7714）。
+# citations: gbt
+# bibliography: references.bib
+# 注意：csl 这一项在 gbt 模式下不用写。
+
 # ---- 出 Word（不需要 pdf-engine 与 geometry）----
 # output: output/report.docx
 # extra_args: ["--reference-doc=<SKILL>/templates/nature_style.docx",

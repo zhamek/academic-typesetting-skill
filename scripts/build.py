@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import subprocess
+import time
 import sys
 from pathlib import Path
 
@@ -24,6 +25,7 @@ from qa_pdf import body_zone, content_bottom  # noqa: E402
 
 DEFAULTS = {
     "engine": "pandoc",
+    "citations": "csl",   # csl（citeproc + nature.csl）| gbt（GB/T 7714）
     "class": "article",
     "fontsize": "11pt",
     "papersize": "a4",
@@ -72,6 +74,70 @@ def pandoc_cmd(cfg: dict, base: Path) -> list[str]:
     return cmd
 
 
+def build_gbt(cfg: dict, base: Path) -> Path:
+    """GB/T 7714 路线：pandoc → .tex，再 xelatex → bibtex → xelatex ×2。
+
+    latexmk 本可以串起这几步，但它在本机 Git Bash 下 spawn bibtex 返回 127，
+    所以这里显式按顺序调，失败即停。
+    """
+    skill = Path(__file__).resolve().parent.parent
+    out_pdf = base / cfg["output"]
+    # .tex 放在项目根目录而不是 output/：前导、wrapper、.bib 都是相对根的路径，
+    # 在 output/ 里编译会找不到 \input 和参考文献库。
+    tex = base / (out_pdf.stem + ".tex")
+
+    cmd = ["pandoc", cfg["source"], "-o", str(tex), "-s", "--natbib",
+           "-V", "biblio-style=gbt7714-numeric",
+           f"--include-in-header={skill / 'templates' / 'gbt-on.tex'}",
+           f"--include-in-header={cfg['header']}"]
+    if cfg.get("bibliography"):
+        cmd.append(f"--metadata=bibliography={cfg['bibliography']}")
+    if cfg.get("number_sections"):
+        cmd.append("--number-sections")
+    cmd.append("--resource-path=" + ";".join(
+        cfg["resource_path"] if isinstance(cfg["resource_path"], list) else [cfg["resource_path"]]))
+
+    print("$ " + " ".join(cmd))
+    res = subprocess.run(cmd, cwd=str(base), capture_output=True, text=True,
+                         encoding="utf-8", errors="replace")
+    if res.returncode != 0:
+        print("pandoc 失败：\n" + (res.stderr or "")[-1500:])
+        raise SystemExit(res.returncode)
+
+    for step in (["xelatex", "-interaction=nonstopmode", tex.name],
+                 ["bibtex", tex.stem],
+                 ["xelatex", "-interaction=nonstopmode", tex.name],
+                 ["xelatex", "-interaction=nonstopmode", tex.name]):
+        print("$ " + " ".join(step))
+        r = subprocess.run(step, cwd=str(base), capture_output=True, text=True,
+                           encoding="utf-8", errors="replace")
+        # 只对 xelatex 严格：本机 MiKTeX 的 bibtex 会在退出时崩溃（139），
+        # 但 .bbl 是完整的，所以以产物为准而不是返回码。
+        if step[0] == "xelatex" and r.returncode != 0:
+            print((r.stdout or "")[-1500:])
+            raise SystemExit(r.returncode)
+        if step[0] == "bibtex":
+            bbl = base / (tex.stem + ".bbl")
+            last = r
+            for attempt in range(10):
+                if bbl.exists() and bbl.stat().st_size > 0:
+                    break
+                # 本机 MiKTeX 的 bibtex 约七成概率在退出时崩溃（0xC0000374），失败时 .bbl 为 0 字节。
+                time.sleep(0.4)
+                last = subprocess.run(step, cwd=str(base), capture_output=True,
+                                      text=True, encoding="utf-8", errors="replace")
+            if not bbl.exists() or bbl.stat().st_size == 0:
+                print("bibtex 连试 10 次都没有产出 .bbl：")
+                print((last.stdout or "") + (last.stderr or ""))
+                raise SystemExit(1)
+
+    produced = base / (tex.stem + ".pdf")
+    out_pdf.parent.mkdir(parents=True, exist_ok=True)
+    if produced != out_pdf:
+        produced.replace(out_pdf)
+    return out_pdf
+
+
 def report_pages(pdf: Path) -> None:
     import fitz
 
@@ -79,7 +145,12 @@ def report_pages(pdf: Path) -> None:
     top = body_zone(doc[0].rect.height)[0]
     h = doc[0].rect.height
     bottoms = {p: content_bottom(doc, p) for p in range(1, doc.page_count + 1)}
-    full = max((b for p, b in bottoms.items() if p != doc.page_count), default=top)
+    # 单页文档没有"正文页"可比，参考取全页最大；仍太小时直接不评估
+    ref = [b for p, b in bottoms.items() if p != doc.page_count] or list(bottoms.values())
+    full = max(ref, default=top)
+    if full - top < 50:
+        print("\n单页或极短文档：不评估页填充率")
+        return
     print(f"\n{doc.page_count} 页 · 版心底线 {full:.0f}pt")
     gaps = []
     for p, b in bottoms.items():
@@ -96,6 +167,7 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--config", default="typeset.yaml")
     ap.add_argument("--qa", action="store_true", help="构建后直接跑交付闸")
+    ap.add_argument("--preflight", action="store_true", help="构建前查字体缺字与工具")
     args = ap.parse_args()
 
     cfg_path = Path(args.config)
@@ -104,19 +176,30 @@ def main() -> int:
         return 1
     cfg = load_config(cfg_path)
 
-    cmd = ["quarto", "render", str(cfg["source"]), "--to",
-           "pdf" if str(cfg["output"]).lower().endswith(".pdf") else "docx"] \
-        if cfg["engine"] == "quarto" else pandoc_cmd(cfg, cfg_path.parent)
+    if args.preflight:
+        pre = Path(__file__).parent / "preflight.py"
+        r = subprocess.run([sys.executable, str(pre), cfg["source"],
+                            "--fonts", cfg.get("fonts", "SimSun,SimHei,Times New Roman")],
+                           cwd=str(cfg_path.parent))
+        if r.returncode != 0:
+            print("预检失败，先修字体再编译（加 --qa 可跳过后续闸门）")
+            return r.returncode
 
-    print("$ " + " ".join(cmd))
-    res = subprocess.run(cmd, cwd=str(cfg_path.parent), capture_output=True,
-                         text=True, encoding="utf-8", errors="replace")
-    if res.returncode != 0:
-        tail = (res.stderr or res.stdout or "")[-2000:]
-        print("构建失败：\n" + tail)
-        return res.returncode
+    if cfg.get("citations") == "gbt":
+        out = build_gbt(cfg, cfg_path.parent)
+    else:
+        cmd = ["quarto", "render", str(cfg["source"]), "--to",
+               "pdf" if str(cfg["output"]).lower().endswith(".pdf") else "docx"] \
+            if cfg["engine"] == "quarto" else pandoc_cmd(cfg, cfg_path.parent)
 
-    out = cfg_path.parent / cfg["output"]
+        print("$ " + " ".join(cmd))
+        res = subprocess.run(cmd, cwd=str(cfg_path.parent), capture_output=True,
+                             text=True, encoding="utf-8", errors="replace")
+        if res.returncode != 0:
+            tail = (res.stderr or res.stdout or "")[-2000:]
+            print("构建失败：\n" + tail)
+            return res.returncode
+        out = cfg_path.parent / cfg["output"]
     if out.suffix.lower() == ".pdf":
         report_pages(out)
     print(f"\n输出 → {out}")

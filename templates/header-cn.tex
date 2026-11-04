@@ -91,6 +91,19 @@
   \renewcommand{\headrulewidth}{0pt}}
 \setlength{\headheight}{15pt}
 
+% ---- 目录 ----
+% pandoc --toc 会插 \tableofcontents；标签默认是英文，这里改成中文。
+\renewcommand{\contentsname}{目录}
+
+% ---- 参考文献：默认 citeproc + nature.csl ----
+% 要走 GB/T 7714（中文课程报告/学位论文），build.py 的 citations: gbt 会先 include
+% templates/gbt-on.tex 定义 \usegbt，这里再加载 gbt7714；样式由 -V biblio-style 给。
+% 注意：不要在头文件里写 \bibliographystyle——pandoc 模板已按 biblio-style 输出一条，
+% 两条会让 bibtex 报 "Illegal, another \bibstyle command" 并放弃整个文献表。
+\ifdefined\usegbt
+  \usepackage{gbt7714}
+\fi
+
 % ---- 链接与 PDF 元数据 ----
 \usepackage[unicode,hidelinks]{hyperref}
 \AtBeginDocument{\hypersetup{pdftitle={\doctitle},pdfauthor={\docauthor}}}

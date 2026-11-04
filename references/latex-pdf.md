@@ -136,7 +136,48 @@ citeproc 输出 `CSLReferences` 列表：
 - 双栏下段落更容易出现"稀疏行"：西文长词加 `\-`，中文保持两端对齐。
 - `qa_pdf.py` 的页填充测量按内容 bbox 裁进正文区，双栏文档同样适用（实测）。
 
-## 9 编译诊断：日志里只看三类信号
+## 9 目录、附录与公式
+
+### 目录
+
+```bash
+pandoc src/report.md ... --toc --toc-depth=2
+```
+
+- 标签默认是英文 "Contents"；`header-cn.tex` 已 `\renewcommand{\contentsname}{目录}`。
+- 目录页与正文页码连续即可；要罗马数字前言页（i, ii）才需要 `\frontmatter`（book 类）。
+- 目录条目过长会换行，`\setcounter{tocdepth}{2}` 控制到几级。
+
+### 附录
+
+正文结束后、附录开始处放一个 raw 块。两种做法，选一种：
+
+```latex
+% 方案 A：appendix 宏包（前导加 \usepackage{appendix}）
+\begin{appendices}
+\section{补充数据}          % 章节自动变成“附录 A”
+\end{appendices}
+
+% 方案 B：不用宏包，手动改计数器
+\appendix
+\renewcommand{\thetable}{A\arabic{table}}
+\renewcommand{\thefigure}{A\arabic{figure}}
+\setcounter{table}{0}
+\setcounter{figure}{0}
+```
+
+表格/图在附录里自动变成 A1、A2。正文引用照旧用 `\tabref{...}`。
+
+补充材料（Supplementary）单独编号 S1、S2，不要与附录混用。
+
+### 公式
+
+- 行内 `$...$`，独立公式用 `$$...$$` 且**独占整行**（上下各留空行），否则 pandoc 可能把它并进段落。
+- 需要引用时写 `\begin{equation}\label{eq:x} ... \end{equation}` 的 raw 块，正文用 `式~\eqref{eq:x}`。
+- 中文文档里公式内的中文要包 `\text{}`，否则会掉回西文字体。
+- 公式编号按章（2.1、2.2）需要 `\numberwithin{equation}{section}`（amsmath）。
+
+## 10 编译诊断：日志里只看三类信号
 
 ```bash
 grep -E "Overfull|Underfull|Float too large|undefined" build.log | sort | uniq -c

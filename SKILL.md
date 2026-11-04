@@ -44,8 +44,11 @@ description: 学术文档的排版与交付引擎——单一 Markdown 源出 PD
 下文用 `$S` 指代本 skill 目录（`~/.claude/skills/academic-typesetting`），因为脚本不在项目里。
 
 ```bash
+# ⓪ 编译前预检：字体缺字、工具是否可得（能把"标点被吞"挡在编译前）
+python "$S/scripts/preflight.py" src/report.md --fonts "SimSun,SimHei,Times New Roman"
+
 # ① 一次配置，之后一条命令（typeset.yaml 见 templates/typeset.example.yaml）
-python "$S/scripts/build.py" --config typeset.yaml        # 出文件 + 打印每页填充率
+python "$S/scripts/build.py" --config typeset.yaml --preflight   # 出文件 + 每页填充率
 
 #    源文件还是管道表时，先换列宽（pandoc 默认四列等宽，中文会被拉散）
 python "$S/scripts/md_tables_to_latex.py" src/report.md \
@@ -61,7 +64,10 @@ python "$S/scripts/qa_docx.py" output/report.docx
 # ④ 对着 FAIL/WARN 改，回到 ①
 ```
 
-`build.py --qa` 可以把 ① 和 ③ 连起来跑。
+`build.py --qa` 可以把 ① 和 ③ 连起来跑；`--preflight` 把 ⓪ 接在 ① 前面。
+
+参考文献要 GB/T 7714（中文报告/学位论文）时，`typeset.yaml` 写 `citations: gbt`，
+构建会改走 pandoc --natbib + bibtex 四遍编译；细节见 `references/cjk-typography.md` §7。
 
 量什么、阈值多少、每种失败怎么修，见 `references/qa-gate.md`。
 

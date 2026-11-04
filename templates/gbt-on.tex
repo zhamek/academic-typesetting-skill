@@ -1,0 +1,4 @@
+% 开关：告诉 header-cn.tex 加载 gbt7714（GB/T 7714 参考文献）。
+% build.py 在 citations: gbt 时先 include 本文件、再 include header-cn.tex。
+% 顺序不能反——\usegbt 必须在 header 读取前就存在。
+\newcommand{\usegbt}{}

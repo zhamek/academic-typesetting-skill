@@ -6,10 +6,14 @@
 ## 1 命令
 
 ```bash
+python scripts/preflight.py src/report.md --fonts "SimSun,SimHei,Times New Roman"  # 编译前
 python scripts/contact_sheet.py output/report.pdf      # 全部页面拼一张图，看留白和掉页
 python scripts/qa_pdf.py  output/report.pdf --lang zh  # PDF 硬指标
 python scripts/qa_docx.py output/report.docx           # Word 硬指标
 ```
+
+预检查的是"编译后才暴露"的那类问题：字体缺字（`、` `。` 被吞）、工具不可达。
+缺字算 FAIL——它不会报错，只会静默少字。
 
 `qa_pdf.py` 输出 `PASS` / `WARN` / `FAIL`，有 FAIL 时退出码为 1。
 `WARN` 需要人判断——比如参考文献最后一页偏短，是正常的。
