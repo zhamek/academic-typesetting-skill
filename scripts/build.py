@@ -84,12 +84,20 @@ def build_gbt(cfg: dict, base: Path) -> Path:
     out_pdf = base / cfg["output"]
     # .tex 放在项目根目录而不是 output/：前导、wrapper、.bib 都是相对根的路径，
     # 在 output/ 里编译会找不到 \input 和参考文献库。
-    tex = base / (out_pdf.stem + ".tex")
+    # 文件名固定用 ASCII：中文/带空格的 stem 会让本机 MiKTeX 的 bibtex 更容易崩。
+    tex = base / "build_report.tex"
 
     cmd = ["pandoc", cfg["source"], "-o", str(tex), "-s", "--natbib",
            "-V", "biblio-style=gbt7714-numeric",
+           "-V", f"documentclass={cfg['class']}",
+           "-V", f"fontsize={cfg['fontsize']}",
+           "-V", f"papersize={cfg['papersize']}",
            f"--include-in-header={skill / 'templates' / 'gbt-on.tex'}",
            f"--include-in-header={cfg['header']}"]
+    if cfg.get("classoption"):
+        cmd += ["-V", f"classoption={cfg['classoption']}"]
+    if cfg.get("geometry"):
+        cmd += ["-V", f"geometry:{cfg['geometry']}"]
     if cfg.get("bibliography"):
         cmd.append(f"--metadata=bibliography={cfg['bibliography']}")
     if cfg.get("number_sections"):
@@ -119,7 +127,7 @@ def build_gbt(cfg: dict, base: Path) -> Path:
         if step[0] == "bibtex":
             bbl = base / (tex.stem + ".bbl")
             last = r
-            for attempt in range(10):
+            for attempt in range(30):
                 if bbl.exists() and bbl.stat().st_size > 0:
                     break
                 # 本机 MiKTeX 的 bibtex 约七成概率在退出时崩溃（0xC0000374），失败时 .bbl 为 0 字节。
@@ -127,7 +135,7 @@ def build_gbt(cfg: dict, base: Path) -> Path:
                 last = subprocess.run(step, cwd=str(base), capture_output=True,
                                       text=True, encoding="utf-8", errors="replace")
             if not bbl.exists() or bbl.stat().st_size == 0:
-                print("bibtex 连试 10 次都没有产出 .bbl：")
+                print("bibtex 连试 30 次都没有产出 .bbl：")
                 print((last.stdout or "") + (last.stderr or ""))
                 raise SystemExit(1)
 
@@ -135,6 +143,9 @@ def build_gbt(cfg: dict, base: Path) -> Path:
     out_pdf.parent.mkdir(parents=True, exist_ok=True)
     if produced != out_pdf:
         produced.replace(out_pdf)
+    # 中间文件只留 .tex 便于排查，其余清掉
+    for ext in (".aux", ".log", ".bbl", ".blg", ".out", ".toc"):
+        (base / (tex.stem + ext)).unlink(missing_ok=True)
     return out_pdf
 
 

@@ -52,6 +52,29 @@ def _set_run_font(style, size=BODY_PT, bold=None, line_spacing=None):
     rfonts.set(qn("w:eastAsia"), CJK)
 
 
+def _add_page_number(section):
+    """页脚居中插入 PAGE 域。
+
+    Word 的页码是域代码（w:fldChar + w:instrText），不是文字——直接写数字
+    只会在每页显示同一个数。这里按 OOXML 的三段式插入。
+    """
+    from docx.enum.text import WD_ALIGN_PARAGRAPH
+
+    para = section.footer.paragraphs[0]
+    para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run = para.add_run()
+    run.font.size = Pt(9)
+    begin = OxmlElement("w:fldChar")
+    begin.set(qn("w:fldCharType"), "begin")
+    instr = OxmlElement("w:instrText")
+    instr.set(qn("xml:space"), "preserve")
+    instr.text = " PAGE "
+    end = OxmlElement("w:fldChar")
+    end.set(qn("w:fldCharType"), "end")
+    for el in (begin, instr, end):
+        run._r.append(el)
+
+
 def _border(tag, val, sz):
     el = OxmlElement(f"w:{tag}")
     el.set(qn("w:val"), val)
@@ -111,6 +134,7 @@ def _build_docx_reference(dest: Path):
             section.bottom_margin = Mm(22)
             section.left_margin = Mm(25)
             section.right_margin = Mm(25)
+            _add_page_number(section)
 
         styles = doc.styles
         have = {s.name for s in styles}

@@ -110,6 +110,13 @@ def main() -> int:
     else:
         r.add("WARN", "页边距 ≥1.5cm", "未设置，用 Word 默认")
 
+    # ---------- 页码 ----------
+    # Word 的页码是域代码，不是文字：只写数字的话每页都是同一个数
+    footer_xml = sec.footer._element.xml if sec.footer is not None else ""
+    has_page = "PAGE" in footer_xml and "fldChar" in footer_xml
+    r.add("PASS" if has_page else "WARN", "页脚页码",
+          "PAGE 域已设置" if has_page else "页脚没有 PAGE 域（导出后每页页码相同）")
+
     # ---------- 字体 ----------
     normal = doc.styles["Normal"]
     latin = normal.font.name or ""
