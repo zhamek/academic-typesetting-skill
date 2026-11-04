@@ -23,8 +23,11 @@
 要精确五号只有两条路：ctex 的 `{\zihao{5} ...}`，或 ctexart 文档类。
 
 **正文字体怎么选：** 学位论文与课程报告用宋体（SimSun），这是学校模板的通行要求；
-技术报告、期刊风排版可用思源宋体（`Source Han Serif SC`）或 Noto Serif SC——字形轮廓更均匀，
-小字号下比 SimSun 稳定。两者不要混用，也不要在一份文档里换字号体系。
+技术报告、期刊风排版可用 Noto Serif SC——字形轮廓更均匀，小字号下比 SimSun 稳定。
+
+**不要用 Source Han Serif SC（实测）：** 本机安装的 Heavy 字重缺 `、` `。` 等 CJK 标点，
+一旦出现加粗中文，标点会被静默吞掉（一份两页样张就丢了 15 个字符），日志只有
+`Missing character` 警告。要查这类问题：`grep -c "Missing character" build.log`。
 
 ## 2 段落
 
